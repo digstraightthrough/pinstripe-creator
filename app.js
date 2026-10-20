@@ -300,9 +300,24 @@ function saveToLibrary() {
   const entry = { savedAt: new Date().toISOString(), design: clone(design) };
   const i = library.findIndex(e => e.design.id === design.id);
   if (i >= 0) library[i] = entry; else library.unshift(entry);
-  if (persistLibrary()) toast(`Saved "${design.name || 'Untitled design'}" in My designs`);
+  if (persistLibrary()) {
+    toast(`Saved "${design.name || 'Untitled design'}" in My designs`);
+    track('save');
+  }
   updateSaveState();
   if ($('libDialog').open) renderLibrary();
+}
+
+/* ---------- Anonymous counts ---------- */
+
+// Counts an action in GoatCounter: only fixed names starting with "pc-" (Pinstripe Creator), never
+// anything from a design. Does nothing if the counter isn't loaded.
+function track(name) {
+  try {
+    if (window.goatcounter && window.goatcounter.count) {
+      window.goatcounter.count({ path: 'pc-' + name, title: 'Pinstripe Creator: ' + name, event: true });
+    }
+  } catch (e) { /* counting must never break the site */ }
 }
 
 /* ---------- Toast ---------- */
@@ -1493,9 +1508,10 @@ $('solidChips').addEventListener('change', e => {
 
 $('modeSeg').addEventListener('click', e => {
   const b = e.target.closest('button[data-mode]');
-  if (!b) return;
+  if (!b || b.dataset.mode === view.mode) return;
   view.mode = b.dataset.mode;
   saveView(); renderViewControls(); renderPreview();
+  if (view.mode === 'garment') track('pajama-view');
 });
 function stepZoom(dir) {
   const i = ZOOM_STEPS.indexOf(view.zoom);
@@ -2213,6 +2229,7 @@ $('pdfBtn').addEventListener('click', async () => {
     const article = design.details.article.trim();
     downloadBlob(blob, `${fileName((article ? article + ' ' : '') + (design.name || 'Untitled design'))} - spec sheet.pdf`);
     toast('PDF downloaded. You will find it in your browser\'s downloads.');
+    track('pdf');
   } catch (err) {
     console.error(err);
     toast('The PDF could not be made. Please try again.', { kind: 'warn' });

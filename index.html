@@ -426,6 +426,7 @@ dialog::backdrop{background:rgba(15,20,30,.45)}
           <button class="btn" id="backupBtn">Download backup</button>
           <label class="btn" tabindex="0" id="restoreLabel">Restore from backup<input type="file" id="restoreInput" accept=".pinstripe,.json,application/json" hidden></label>
         </div>
+        <p class="muted small" style="margin-top:14px">Visits are counted with GoatCounter: no cookies, nothing that identifies you. Your designs never leave this browser.</p>
       </div>
     </div>
   </div>
@@ -453,6 +454,10 @@ dialog::backdrop{background:rgba(15,20,30,.45)}
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo" hidden>Undo</button></div>
 
 <noscript><p style="padding:16px">Pinstripe Creator needs JavaScript to run.</p></noscript>
+<!-- Visitor counting with GoatCounter (same account as the other digstraightthrough sites): no cookies,
+     no personal data; our own copy of their script. Only the page path is sent, never the part after "?". -->
+<script>window.goatcounter = { path: function () { return location.pathname || "/"; } };</script>
+<script data-goatcounter="https://digstraightthrough.goatcounter.com/count" async src="vendor/goatcounter/count.js"></script>
 <script src="fabrics.js"></script>
 <script src="app.js"></script>
 </body>

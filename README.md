@@ -22,3 +22,9 @@ Designs are kept in the browser under **My designs**. **Download backup** and **
 (in the same window) keep them safe and move them to another computer.
 
 The Pantone field is a label only: the color shown is the one set with the swatch or hex code.
+
+**Website:** https://digstraightthrough.github.io/pinstripe-creator/
+
+Visits are counted with GoatCounter (same account as the other digstraightthrough sites): no cookies,
+nothing that identifies a visitor, and only the page path is sent. Three actions are counted
+anonymously as `pc-save`, `pc-pdf` and `pc-pajama-view`. Designs are never sent anywhere.
