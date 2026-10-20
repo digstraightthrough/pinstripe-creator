@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinstripe Creator</title>
+<meta name="description" content="Design fabric pinstripe patterns: stripe sequence, rapport calculation and repeat preview.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#fff; --surface-2:#f7f6f2; --text:#1b2230; --muted:#687080;
+  --line:#e4e2db; --line-strong:#cfccc3;
+  --accent:#24467a; --accent-soft:#e7edf7; --accent-text:#fff;
+  --ok:#1d7a4f; --ok-soft:#e2f3ea; --warn:#a2560a; --warn-soft:#fcefd9; --danger:#b42318; --danger-soft:#fdecea;
+  --canvas-bg:#e8e6e0; --canvas-dot:#cfccc4; --ruler-bg:rgba(255,255,255,.9); --ruler-ink:#2b3240;
+  --logo-ground:#1f2a44; --swatch-edge:rgba(0,0,0,.18);
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 6px 20px rgba(16,24,40,.06);
+  --radius:12px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#12151b; --surface:#1a1e26; --surface-2:#212630; --text:#e8ebf1; --muted:#9aa3b2;
+    --line:#2b313d; --line-strong:#3b4351;
+    --accent:#86aef0; --accent-soft:#1f2a3d; --accent-text:#0d1320;
+    --ok:#4cc38a; --ok-soft:#163226; --warn:#f0a04b; --warn-soft:#3a2a16; --danger:#ff8a80; --danger-soft:#3a1d1d;
+    --canvas-bg:#262b35; --canvas-dot:#353c4a; --ruler-bg:rgba(26,30,38,.92); --ruler-ink:#d5dae3;
+    --logo-ground:#2c3c63; --swatch-edge:rgba(255,255,255,.28);
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:default;opacity:.35}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap;flex:none}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:9px;background:repeating-linear-gradient(90deg,var(--logo-ground) 0 7px,#efe9dc 7px 8.4px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);flex:none}
+.brand-name{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.brand-sub{font-size:12px;color:var(--muted)}
+.top-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sep{width:1px;height:24px;background:var(--line);margin:0 4px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 12px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);font-weight:600;font-size:13px;position:relative;white-space:nowrap}
+.btn:hover:not(:disabled){background:var(--surface-2)}
+.btn.icon{width:34px;padding:0}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
+.btn.primary:hover:not(:disabled){background:var(--accent);filter:brightness(1.1)}
+.btn svg{width:16px;height:16px;flex:none}
+.dot{position:absolute;top:-4px;right:-4px;width:11px;height:11px;border-radius:50%;background:var(--warn);border:2px solid var(--surface)}
+
+/* Main layout */
+.layout{flex:1;min-height:0;display:grid;grid-template-columns:390px minmax(0,1fr);gap:16px;padding:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.block{padding:14px 16px;border-bottom:1px solid var(--line)}
+.block.grow{flex:1;display:flex;flex-direction:column;min-height:470px;border-bottom:0}
+.side{overflow-y:auto}          /* when the order details are open, the whole panel scrolls */
+.view{overflow-y:auto}
+.view.garment .stage{min-height:440px}
+.lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
+.block > .lbl:first-child{margin-top:0}
+.input{width:100%;height:36px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);padding:0 10px;font:inherit}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;padding:3px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px}
+.seg button{border:0;background:none;border-radius:7px;padding:7px 4px;font-size:11.5px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.seg.small button,.toolbar .seg button{flex-direction:row;justify-content:center;padding:6px 10px;font-size:12.5px}
+.layouts svg{width:20px;height:20px}
+.subrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.subrow .lbl{margin:0}
+
+/* Stripe list */
+.block-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.block-head h2{font-size:11px;margin:0;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.count{font-size:12px;color:var(--muted)}
+.stripes{list-style:none;margin:0 -8px;padding:2px 8px;flex:1;overflow:auto;min-height:120px}
+.stripe{display:grid;grid-template-columns:18px 40px minmax(0,1fr) 84px 50px;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--surface)}
+.stripe:hover{border-color:var(--line-strong)}
+.stripe.flash{animation:flash 1.2s ease-out}
+@keyframes flash{from{background:var(--accent-soft);border-color:var(--accent)}}
+.num{font-size:11px;color:var(--muted);text-align:center;font-weight:600}
+.swatch{width:40px;height:40px;border-radius:8px;box-shadow:inset 0 0 0 1px var(--swatch-edge);position:relative;cursor:pointer;overflow:hidden;display:block}
+.swatch:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.swatch input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.fields{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fields input,.width input{height:28px;border:1px solid var(--line);border-radius:6px;padding:0 7px;background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;width:100%;min-width:0}
+.fields .hex{font-size:11.5px;color:var(--muted);text-transform:uppercase}
+.width{position:relative}
+.width input{height:40px;padding-right:30px;font-size:14px;font-weight:600;text-align:right}
+.width span{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);pointer-events:none}
+input.bad{border-color:var(--danger)!important;background:var(--danger-soft)!important}
+.row-actions{display:grid;grid-template-columns:repeat(2,24px);gap:2px}
+.row-actions button{width:24px;height:22px;border:0;background:none;border-radius:5px;color:var(--muted);display:grid;place-items:center;padding:0}
+.row-actions button:hover:not(:disabled){background:var(--surface-2);color:var(--text)}
+.row-actions button[data-a="del"]:hover{color:var(--danger);background:var(--danger-soft)}
+.row-actions svg{width:14px;height:14px}
+.list-empty{color:var(--muted);text-align:center;padding:28px 8px}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 10px}
+.list-actions{display:flex;gap:6px}
+.btn.wide{flex:1}
+
+/* How much of the fabric's maximum rapport is used */
+.meter{margin:0 0 10px}
+.meter-bar{height:6px;border-radius:999px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+.meter-bar span{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .2s}
+.meter-text{font-size:12px;color:var(--muted);margin-top:4px}
+.meter.near .meter-bar span{background:var(--warn)}
+.meter.near .meter-text{color:var(--warn);font-weight:600}
+.meter.over .meter-bar span{background:var(--danger)}
+.meter.over .meter-text{color:var(--danger);font-weight:600}
+.meter.shake{animation:shake .45s}
+@keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+
+/* Red banner when the design is longer than the fabric allows */
+.limit-banner{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:var(--danger-soft);color:var(--danger);border-bottom:1px solid var(--danger);font-size:13px;line-height:1.45}
+.limit-banner svg{width:18px;height:18px;flex:none;margin-top:1px}
+
+/* Preview */
+.toolbar{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+.toolbar .seg{grid-auto-columns:auto}
+.zoom{display:flex;align-items:center;gap:4px}
+.zoom-val{min-width:60px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);font-weight:600;font-size:13px}
+.check{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;user-select:none;cursor:pointer}
+.check input{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.link{border:0;background:none;color:var(--accent);font-size:12px;font-weight:500;padding:4px;margin-left:auto}
+.link:hover{text-decoration:underline}
+.stage{position:relative;flex:1;min-height:260px;background:var(--canvas-bg)}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-weight:500}
+.empty[hidden]{display:none}
+.stats{display:flex;align-items:center;gap:8px 22px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
+.stat .lbl{margin:0 0 1px}
+.big{font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.mid{font-size:15px;font-weight:600;line-height:1.3}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:600}
+.chip svg{width:15px;height:15px;flex:none}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.over{background:var(--danger-soft);color:var(--danger)}
+.chip[hidden]{display:none}
+.big.over{color:var(--danger)}
+.stat-note{flex-basis:100%;margin:0;font-size:12.5px;color:var(--muted)}
+.stat-note:empty{display:none}
+.colors{border-top:1px solid var(--line);padding:0 16px}
+.colors summary{cursor:pointer;padding:10px 0;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tbl-wrap{max-height:150px;overflow:auto;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);padding:4px 6px}
+td{padding:4px 6px;border-top:1px solid var(--line)}
+.swatch-sm{display:inline-block;width:32px;height:22px;border-radius:5px;position:relative;overflow:hidden;vertical-align:middle;box-shadow:inset 0 0 0 1px var(--swatch-edge);cursor:pointer}
+.swatch-sm:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.swatch-sm input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+td .pan{height:26px;border:1px solid var(--line);border-radius:6px;padding:0 6px;font:inherit;font-size:12.5px;width:100%;min-width:90px;background:var(--surface);color:var(--text)}
+
+/* Order details */
+.order{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.order summary{cursor:pointer;font-size:12.5px;font-weight:600}
+.order summary .muted{font-weight:400}
+.order-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.order-grid label{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:600;color:var(--muted);min-width:0}
+.order-grid .wide{grid-column:1 / -1}
+.order-grid .input{height:32px;font-size:13px}
+.order-grid textarea.input{height:auto;padding:6px 10px;resize:vertical;font-family:inherit;line-height:1.4}
+
+/* Colorways */
+.cw-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.cw-tab{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px 0 6px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);font-weight:600;font-size:12.5px;max-width:150px}
+.cw-tab:hover{background:var(--surface-2)}
+.cw-tab[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
+.cw-tab .chips{display:inline-flex;height:16px;width:24px;border-radius:4px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--swatch-edge);flex:none}
+.cw-tab .chips i{flex:1 1 0}
+.cw-tab .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cw-add{height:30px;padding:0 10px;border:1px dashed var(--line-strong);border-radius:8px;background:none;font-weight:600;font-size:12.5px;color:var(--muted)}
+.cw-add:hover:not(:disabled){color:var(--accent);border-color:var(--accent)}
+.cw-edit{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}
+.cw-name{flex:1;display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:600;color:var(--muted)}
+.cw-name .input{height:32px;font-size:13px}
+.cw-edit .btn{height:32px}
+
+/* Pajama set options */
+.gbar{display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+.gopt{display:flex;flex-direction:column;gap:3px}
+.gopt .lbl{margin:0}
+.gopt .seg{background:var(--surface)}
+.solid-chips{display:flex;gap:6px;align-items:center;min-height:32px;flex-wrap:wrap}
+.solid-chips button,.solid-chips label{width:26px;height:26px;border-radius:7px;border:0;box-shadow:inset 0 0 0 1px var(--swatch-edge);padding:0;position:relative;cursor:pointer;display:block}
+.solid-chips [aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:2px}
+.solid-chips label{background:conic-gradient(#e74c3c,#f1c40f,#2ecc71,#3498db,#9b59b6,#e74c3c)}
+.solid-chips label input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.solid-note{font-size:12px;color:var(--muted)}
+.r{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Dialogs */
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--surface);color:var(--text);box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
+dialog::backdrop{background:rgba(15,20,30,.45)}
+.dlg{display:flex;flex-direction:column;max-height:calc(100vh - 50px)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.dlg-head h2{margin:0;font-size:17px}
+.dlg-body{padding:14px 18px;overflow:auto}
+.dlg-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.lib-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 6px}
+.lib-list{list-style:none;margin:0;padding:0}
+.lib-item{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.lib-item canvas{width:56px;height:56px;border-radius:8px;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.lib-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lib-item.current .lib-name::after{content:"open now";margin-left:8px;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:999px}
+.lib-meta{font-size:12px;color:var(--muted)}
+.lib-btns{display:flex;gap:6px}
+.lib-empty{color:var(--muted);padding:18px 0;border-top:1px solid var(--line)}
+.backup{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.backup h3{margin:0 0 4px;font-size:14px}
+.backup p{margin:0}
+.cal-area{overflow:auto;padding:6px 0 12px}
+.cal-card{border:2px solid var(--accent);background:var(--accent-soft);border-radius:10px;display:grid;place-items:center;font-size:12px;color:var(--accent);font-weight:600}
+.cal-range{width:100%;accent-color:var(--accent)}
+
+/* Toast */
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,16px);display:flex;align-items:center;gap:14px;background:var(--text);color:var(--surface);padding:10px 12px 10px 16px;border-radius:10px;font-weight:500;font-size:13px;line-height:1.4;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;width:max-content;max-width:min(620px,calc(100vw - 32px));z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+#toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#toast.warn{background:#b42318;color:#fff}
+#toast button{flex:none;border:0;background:color-mix(in srgb,currentColor 18%,transparent);color:inherit;font-weight:700;font-size:13px;padding:6px 12px;border-radius:7px}
+#toast button:hover{background:color-mix(in srgb,currentColor 30%,transparent)}
+
+/* Smaller screens: panels stack */
+@media (max-width:980px){
+  html,body{height:auto}
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .panel{overflow:visible}
+  .stripes{overflow:visible;flex:none}
+  .stage{flex:none;height:62vh}
+}
+@media (max-width:600px){
+  .top{padding:10px}
+  .top-actions .btn > span{display:none}
+  .top-actions .btn:not(.icon){width:34px;padding:0}
+  .layout{padding:10px;gap:10px}
+  .block{padding:12px}
+  .stripe{grid-template-columns:14px 36px minmax(0,1fr) 74px 50px;gap:6px;padding:7px}
+  .swatch{width:36px;height:36px}
+  .layouts button{font-size:10.5px;padding:6px 2px}
+  .link{margin-left:0}
+  .stats{gap:8px 16px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <div class="brand-name">Pinstripe Creator</div>
+      <div class="brand-sub">Stripe &amp; rapport designer</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button class="btn" id="undoBtn" title="Undo the last change (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span>Undo</span></button>
+    <button class="btn" id="redoBtn" title="Redo what was undone (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg><span>Redo</span></button>
+    <span class="sep"></span>
+    <button class="btn" id="newBtn" title="Start a new design" aria-label="New design"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg><span>New</span></button>
+    <button class="btn" id="libBtn" title="Open saved designs, or make a backup" aria-label="My designs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>My designs</span></button>
+    <button class="btn" id="pdfBtn" title="Download a PDF spec sheet of this design" aria-label="Save as PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 11v6M9 14l3 3 3-3"/></svg><span id="pdfLabel">Save as PDF</span></button>
+    <button class="btn primary" id="saveBtn" title="Save in My designs (Ctrl+S)" aria-label="Save design"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3"/><path d="M7 21v-7h10v7"/></svg><span>Save design</span><i class="dot" id="saveDot" title="Changes not yet saved in My designs" hidden></i></button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel side">
+    <section class="block">
+      <label class="lbl" for="nameInput">Design name</label>
+      <input id="nameInput" class="input" type="text" maxlength="80" placeholder="Untitled design" autocomplete="off">
+
+      <label class="lbl" for="fabricSelect">Fabric model</label>
+      <select id="fabricSelect" class="input"></select>
+
+      <div class="lbl" id="layoutLbl">Layout</div>
+      <div class="seg layouts" id="layoutSeg" role="group" aria-labelledby="layoutLbl">
+        <button data-layout="vertical" title="Vertical stripes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 4v16M12 4v16M18 4v16"/></svg>Vertical</button>
+        <button data-layout="horizontal" title="Horizontal stripes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Horizontal</button>
+        <button data-layout="check" title="Check: the same sequence in both directions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v16M16 4v16M4 8h16M4 16h16"/></svg>Check</button>
+        <button data-layout="diagonal-left" title="Diagonal, leaning left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M5 13l6 6M13 5l6 6"/></svg>Diag. left</button>
+        <button data-layout="diagonal-right" title="Diagonal, leaning right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 5 5 19M11 5l-6 6M19 13l-6 6"/></svg>Diag. right</button>
+      </div>
+
+      <div class="subrow" id="angleRow" hidden>
+        <span class="lbl" id="angleLbl">Tilt from vertical</span>
+        <div class="seg small" id="angleSeg" role="group" aria-labelledby="angleLbl">
+          <button data-angle="30">30°</button>
+          <button data-angle="45">45°</button>
+          <button data-angle="60">60°</button>
+        </div>
+      </div>
+
+      <div class="subrow" id="crossRow" hidden>
+        <span class="lbl" id="crossLbl">Where stripes cross</span>
+        <div class="seg small" id="crossSeg" role="group" aria-labelledby="crossLbl">
+          <button data-cross="mix" title="Colors blend half and half, like crossing yarns">Blend</button>
+          <button data-cross="multiply" title="Colors darken each other, like overprinting">Darken</button>
+        </div>
+      </div>
+
+      <details class="order" id="orderDetails">
+        <summary>Order details <span class="muted">(optional, shown on the PDF)</span></summary>
+        <div class="order-grid">
+          <label><span>Article no.</span><input class="input" type="text" data-detail="article" maxlength="60" autocomplete="off"></label>
+          <label><span>Customer</span><input class="input" type="text" data-detail="customer" maxlength="60" autocomplete="off"></label>
+          <label><span>Season</span><input class="input" type="text" data-detail="season" maxlength="60" autocomplete="off"></label>
+          <label><span>Designer</span><input class="input" type="text" data-detail="designer" maxlength="60" autocomplete="off"></label>
+          <label class="wide"><span>Notes</span><textarea class="input" data-detail="notes" maxlength="400" rows="2"></textarea></label>
+        </div>
+      </details>
+    </section>
+
+    <section class="block grow">
+      <div class="block-head">
+        <h2>Stripes</h2>
+        <span class="count" id="stripeCount"></span>
+      </div>
+      <div class="cw-bar" id="cwBar" role="group" aria-label="Colorways"></div>
+      <div class="cw-edit" id="cwEdit" hidden>
+        <label class="cw-name"><span>Colorway name</span><input class="input" type="text" id="cwName" maxlength="30" autocomplete="off"></label>
+        <button class="btn" id="cwDelete" title="Delete this colorway">Delete colorway</button>
+      </div>
+      <div class="meter" id="meter">
+        <div class="meter-bar"><span id="meterFill"></span></div>
+        <div class="meter-text" id="meterText"></div>
+      </div>
+      <ol class="stripes" id="stripeList"></ol>
+      <p class="hint">The Pantone field is a label only. Set the color itself with the swatch or a hex code.</p>
+      <div class="list-actions">
+        <button class="btn primary wide" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add stripe</button>
+        <button class="btn" id="mirrorBtn" title="Add the stripes in reverse so the repeat is symmetric (A B C becomes A B C B)">Mirror</button>
+        <button class="btn" id="reverseBtn" title="Reverse the order of the stripes">Reverse</button>
+      </div>
+    </section>
+  </aside>
+
+  <section class="panel view">
+    <div class="toolbar">
+      <div class="seg" id="modeSeg" role="group" aria-label="View">
+        <button data-mode="single">Single repeat</button>
+        <button data-mode="fabric">Fabric view</button>
+        <button data-mode="garment">Pajama set</button>
+      </div>
+      <div class="seg" id="gShow" role="group" aria-label="Show" hidden>
+        <button data-v="set" title="Top and bottom together">Set</button>
+        <button data-v="top" title="Only the top, larger">Top</button>
+        <button data-v="bottom" title="Only the bottom, larger">Bottom</button>
+      </div>
+      <div class="zoom">
+        <button class="btn icon" id="zoomOut" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+        <button class="zoom-val" id="zoomVal" title="Back to 100% (real size)">100%</button>
+        <button class="btn icon" id="zoomIn" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <label class="check" id="linesLabel"><input type="checkbox" id="linesToggle">Repeat lines</label>
+      <label class="check" id="rulerLabel"><input type="checkbox" id="rulerToggle">Ruler</label>
+      <button class="link" id="calBtn"></button>
+    </div>
+    <div class="gbar" id="garmentBar" hidden>
+      <div class="gopt"><span class="lbl">Top</span>
+        <div class="seg small" data-g="top"><button data-v="tee">T-shirt</button><button data-v="shirt">Button-front</button></div></div>
+      <div class="gopt"><span class="lbl">Sleeves</span>
+        <div class="seg small" data-g="sleeve"><button data-v="short">Short</button><button data-v="long">Long</button></div></div>
+      <div class="gopt"><span class="lbl">Bottom</span>
+        <div class="seg small" data-g="bottom"><button data-v="shorts">Shorts</button><button data-v="pants">Long pants</button></div></div>
+      <div class="gopt"><span class="lbl">Stripes on</span>
+        <div class="seg small" data-g="striped"><button data-v="top">Top</button><button data-v="bottom">Bottom</button><button data-v="both">Both</button></div></div>
+      <div class="gopt" id="solidOpt"><span class="lbl">Solid color</span>
+        <div class="solid-chips" id="solidChips"></div></div>
+    </div>
+    <div class="limit-banner" id="limitBanner" role="alert" hidden></div>
+    <div class="stage" id="stage">
+      <canvas id="preview" role="img" aria-label="Pattern preview"></canvas>
+      <div class="empty" id="emptyMsg" hidden>Add a stripe to see the preview.</div>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="lbl">Rapport (repeat)</div>
+        <div class="big mono" id="rapportVal">0.00 mm</div>
+      </div>
+      <div class="chip" id="rapportChip" hidden></div>
+      <div class="stat"><div class="lbl">Stripes</div><div class="mid" id="statStripes">0</div></div>
+      <div class="stat"><div class="lbl">Layout</div><div class="mid" id="statLayout"></div></div>
+      <p class="stat-note" id="statNote"></p>
+    </div>
+    <details class="colors" open>
+      <summary>Colors in <span id="colorsTitle">this design</span></summary>
+      <p class="hint" style="margin:0 0 6px">Change a color or Pantone here to change every stripe of that color at once.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Color</th><th>Pantone</th><th>Hex</th><th class="r">Stripes</th><th class="r">Width</th><th class="r">Share</th></tr></thead>
+          <tbody id="colorRows"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+</main>
+
+<dialog id="libDialog" aria-labelledby="libTitle">
+  <div class="dlg">
+    <div class="dlg-head">
+      <h2 id="libTitle">My designs</h2>
+      <button class="btn icon" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <div class="lib-tools" style="margin-top:0">
+        <button class="btn" id="libSaveCopy">Save the current design as a copy</button>
+      </div>
+      <ul class="lib-list" id="libList"></ul>
+      <div class="backup">
+        <h3>Backup</h3>
+        <p class="muted small">Your designs are kept only in this browser, on this computer. If the browser's data is cleared, they are gone. Download a backup now and then. The same backup file also moves your designs to another computer. To show a design to someone, use <b>Save as PDF</b> instead.</p>
+        <div class="lib-tools">
+          <button class="btn" id="backupBtn">Download backup</button>
+          <label class="btn" tabindex="0" id="restoreLabel">Restore from backup<input type="file" id="restoreInput" accept=".pinstripe,.json,application/json" hidden></label>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="calDialog" aria-labelledby="calTitle">
+  <div class="dlg">
+    <div class="dlg-head">
+      <h2 id="calTitle">Real-size calibration</h2>
+      <button class="btn icon" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <p style="margin-top:0">Hold a bank card (85.6 mm wide) against the screen. Move the slider until the box below is exactly as wide as the card. After that, <b>100%</b> zoom shows the fabric at its real size on this screen.</p>
+      <div class="cal-area"><div class="cal-card" id="calCard">85.6 mm</div></div>
+      <input class="cal-range" type="range" id="calRange" min="2" max="8" step="0.01" aria-label="Screen pixels per millimetre">
+      <p class="muted small" id="calInfo"></p>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn" id="calReset">Reset to standard</button>
+      <button class="btn primary" data-close>Done</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo" hidden>Undo</button></div>
+
+<noscript><p style="padding:16px">Pinstripe Creator needs JavaScript to run.</p></noscript>
+<script src="fabrics.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
