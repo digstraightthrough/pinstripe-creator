@@ -28,6 +28,9 @@ The Pantone field is a label only: the color shown is the one set with the swatc
 
 **Website:** https://digstraightthrough.github.io/pinstripe-creator/
 
+When publishing a change, update the `?v=` number on the script lines at the bottom of `index.html`.
+Browsers keep the files for 10 minutes; the new number makes them fetch the new program with the new page.
+
 Visits are counted with GoatCounter (same account as the other digstraightthrough sites): no cookies,
 nothing that identifies a visitor, and only the page path is sent. Three actions are counted
 anonymously as `pc-save`, `pc-pdf` and `pc-pajama-view`. Designs are never sent anywhere.

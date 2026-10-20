@@ -511,8 +511,10 @@ button.swatch-sm{border:0;padding:0}
      no personal data; our own copy of their script. Only the page path is sent, never the part after "?". -->
 <script>window.goatcounter = { path: function () { return location.pathname || "/"; } };</script>
 <script data-goatcounter="https://digstraightthrough.goatcounter.com/count" async src="vendor/goatcounter/count.js"></script>
-<script src="fabrics.js"></script>
-<script src="colors.js"></script>
-<script src="app.js"></script>
+<!-- The "?v=" number makes browsers fetch the new files after an update, instead of mixing a new page
+     with an old program they still remember. Change it (to the date and a letter) every time the site is published. -->
+<script src="fabrics.js?v=2026-10-20d"></script>
+<script src="colors.js?v=2026-10-20d"></script>
+<script src="app.js?v=2026-10-20d"></script>
 </body>
 </html>
