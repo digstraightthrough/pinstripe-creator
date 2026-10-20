@@ -207,12 +207,14 @@ function cw() {
   return activeCw;
 }
 
-const view = { mode: 'fabric', zoom: 1, repeatLines: false, ruler: true, gShow: 'set' };
+const view = { mode: 'fabric', zoom: 1, repeatLines: false, ruler: true, gShow: 'set', pickSeason: '', pickInactive: false };
 (function loadView() {
   const v = readJSON(KEYS.view);
   if (!v) return;
   if (v.mode === 'single' || v.mode === 'fabric' || v.mode === 'garment') view.mode = v.mode;
   if (v.gShow === 'set' || v.gShow === 'top' || v.gShow === 'bottom') view.gShow = v.gShow;
+  if (typeof v.pickSeason === 'string') view.pickSeason = v.pickSeason;
+  if (typeof v.pickInactive === 'boolean') view.pickInactive = v.pickInactive;
   if (ZOOM_STEPS.includes(v.zoom)) view.zoom = v.zoom;
   if (typeof v.repeatLines === 'boolean') view.repeatLines = v.repeatLines;
   if (typeof v.ruler === 'boolean') view.ruler = v.ruler;
@@ -930,11 +932,9 @@ function stripeRow(s, i, n) {
   const k = i + 1;
   return `<li class="stripe" data-i="${i}">
     <span class="num">${k}</span>
-    <label class="swatch" style="background:${s.color}" title="Pick a color">
-      <input type="color" value="${s.color}" data-f="color" aria-label="Stripe ${k} color">
-    </label>
+    <button class="swatch" data-a="pick" style="background:${s.color}" title="Choose a company color" aria-label="Stripe ${k} color: choose a company color"></button>
     <div class="fields">
-      <input type="text" value="${esc(s.pantone)}" data-f="pantone" placeholder="Pantone ref." maxlength="60" autocomplete="off" aria-label="Stripe ${k} Pantone reference">
+      <input type="text" value="${esc(s.pantone)}" data-f="pantone" placeholder="Color ref." maxlength="60" autocomplete="off" aria-label="Stripe ${k} color reference">
       <input type="text" class="hex mono" value="${s.color.toUpperCase()}" data-f="hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Stripe ${k} hex color">
     </div>
     <div class="width">
@@ -1062,9 +1062,8 @@ function renderColorSummary() {
   const groups = colorGroups(st);
   $('colorRows').innerHTML = groups.length
     ? groups.map(g => `<tr data-idx="${g.indices.join(',')}">
-        <td class="sw"><label class="swatch-sm" style="background:${g.color}" title="Change this color in every stripe that has it">
-          <input type="color" value="${g.color}" data-gf="color" aria-label="Color ${g.color.toUpperCase()}"></label></td>
-        <td><input type="text" class="pan" value="${esc(g.pantone)}" data-gf="pantone" placeholder="Pantone ref." maxlength="60" autocomplete="off" aria-label="Pantone for ${g.color.toUpperCase()}"></td>
+        <td class="sw"><button class="swatch-sm" data-gpick style="background:${g.color}" title="Choose a company color for every stripe that has this color" aria-label="Change color ${g.color.toUpperCase()} in every stripe that has it"></button></td>
+        <td><input type="text" class="pan" value="${esc(g.pantone)}" data-gf="pantone" placeholder="Color ref." maxlength="60" autocomplete="off" aria-label="Color reference for ${g.color.toUpperCase()}"></td>
         <td class="mono">${g.color.toUpperCase()}</td>
         <td class="r">${g.count}</td>
         <td class="r mono">${g.width.toFixed(2)} mm</td>
@@ -1200,17 +1199,11 @@ listEl.addEventListener('input', e => {
   const s = design.stripes[Number(row.dataset.i)];
   const c = s.colors[cw()];   // colors belong to the colorway being edited; the width is shared
   const f = t.dataset.f;
-  if (f === 'color') {
-    c.color = t.value.toLowerCase();
-    row.querySelector('[data-f="hex"]').value = c.color.toUpperCase();
-    row.querySelector('[data-f="hex"]').classList.remove('bad');
-    row.querySelector('.swatch').style.background = c.color;
-  } else if (f === 'hex') {
+  if (f === 'hex') {
     const h = normalizeHex(t.value);
     t.classList.toggle('bad', !h);
     if (h) {
       c.color = h;
-      row.querySelector('[data-f="color"]').value = h;
       row.querySelector('.swatch').style.background = h;
     }
   } else if (f === 'pantone') {
@@ -1275,6 +1268,7 @@ listEl.addEventListener('click', e => {
   const b = e.target.closest('button[data-a]');
   if (!b) return;
   const i = Number(b.closest('.stripe').dataset.i);
+  if (b.dataset.a === 'pick') { openPicker({ type: 'stripe', idx: [i] }); return; }
   const st = design.stripes;
   let focusIndex = i;
   switch (b.dataset.a) {
@@ -1421,12 +1415,7 @@ $('colorRows').addEventListener('input', e => {
   const t = e.target, row = t.closest('tr[data-idx]');
   if (!row) return;
   const idx = row.dataset.idx.split(',').map(Number), k = cw();
-  if (t.dataset.gf === 'color') {
-    const color = t.value.toLowerCase();
-    for (const i of idx) design.stripes[i].colors[k].color = color;
-    row.querySelector('.swatch-sm').style.background = color;
-    row.children[2].textContent = color.toUpperCase();
-  } else if (t.dataset.gf === 'pantone') {
+  if (t.dataset.gf === 'pantone') {
     for (const i of idx) design.stripes[i].colors[k].pantone = t.value;
   }
   // Not redrawing this table while typing, so the cursor stays where it is.
@@ -1449,6 +1438,133 @@ $('colorRows').addEventListener('change', e => {
 });
 $('colorRows').addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('input[type="text"]')) e.target.blur();
+});
+$('colorRows').addEventListener('click', e => {
+  const b = e.target.closest('[data-gpick]');
+  if (!b) return;
+  openPicker({ idx: b.closest('tr[data-idx]').dataset.idx.split(',').map(Number) });
+});
+
+/* ---------- Company colors (the list in colors.js) ---------- */
+
+// Text for searching: no accents, no capitals, hyphens and slashes read as spaces.
+function fold(s) {
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[-_/·.,()]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+const COMPANY = (typeof COMPANY_COLORS !== 'undefined' ? COMPANY_COLORS : []).map(([code, name, pantone, hex, seasons, active], n) => ({
+  n, code, name, pantone, hex: normalizeHex(hex) || '', seasons: Array.isArray(seasons) ? seasons : [], active: !!active,
+  key: fold(`${code} ${name} ${pantone}`),
+}));
+// What is written in a stripe's color reference when a company color is chosen.
+function companyLabel(c) {
+  return `${c.code} ${c.name}` + (c.pantone ? ` · ${c.pantone}` : '');
+}
+function seasonRank(s) {
+  const m = /^(\d{4}) (\w+)/.exec(s);
+  return m ? [0, -Number(m[1]), ({ Summer: 0, Winter: 1, Special: 2 })[m[2]] ?? 3] : [1, 0, 0];
+}
+const COMPANY_SEASONS = [...new Set(COMPANY.flatMap(c => c.seasons))].sort((a, b) => {
+  const x = seasonRank(a), y = seasonRank(b);
+  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+});
+
+let pickTarget = null;   // { idx: [stripe numbers] } in the colorway being edited
+
+function openPicker(target) {
+  if (!COMPANY.length) { toast('The company color list is not loaded.', { kind: 'warn' }); return; }
+  commit();
+  pickTarget = target;
+  const n = target.idx.length, k = cw();
+  const where = design.colorways.length > 1 ? ` in colorway ${design.colorways[k].name}` : '';
+  $('pickFor').textContent = n === 1 ? `For stripe ${target.idx[0] + 1}${where}` : `For all ${n} stripes of this color${where}`;
+  $('pickOther').value = design.stripes[target.idx[0]].colors[k].color;
+  $('pickInactive').checked = view.pickInactive;
+  $('pickSearch').value = '';
+  $('pickSource').textContent = `${COMPANY.length} solid colors · ${typeof COMPANY_COLORS_SOURCE === 'string' ? COMPANY_COLORS_SOURCE : ''}`;
+  renderSeasonOptions();
+  renderPicker();
+  $('pickDialog').showModal();
+  $('pickSearch').focus();
+}
+
+function renderSeasonOptions() {
+  const pool = COMPANY.filter(c => view.pickInactive || c.active);
+  if (view.pickSeason && !COMPANY_SEASONS.includes(view.pickSeason)) view.pickSeason = '';
+  $('pickSeason').innerHTML = `<option value="">All seasons (${pool.length})</option>` +
+    COMPANY_SEASONS.map(s => {
+      const count = pool.filter(c => c.seasons.includes(s)).length;
+      return `<option value="${esc(s)}">${esc(s === 'NOS' ? 'NOS (never out of stock)' : s)} (${count})</option>`;
+    }).join('');
+  $('pickSeason').value = view.pickSeason;
+}
+
+function renderPicker() {
+  const words = fold($('pickSearch').value).split(' ').filter(Boolean);
+  const current = pickTarget ? design.stripes[pickTarget.idx[0]].colors[cw()].pantone : '';
+  const list = COMPANY.filter(c => (view.pickInactive || c.active) &&
+    (!view.pickSeason || c.seasons.includes(view.pickSeason)) && words.every(w => c.key.includes(w)));
+  const filtered = words.length || view.pickSeason;
+  $('pickInfo').textContent = filtered ? `${list.length} found` : `${list.length} colors`;
+  $('pickGrid').innerHTML = list.length
+    ? list.map(c => `<button class="pick-card" data-n="${c.n}"${companyLabel(c) === current ? ' aria-current="true"' : ''}
+        title="${esc(`Seasons: ${c.seasons.join(', ') || 'none'}${c.hex ? '' : ' · Centric has no screen color for this one'}`)}">
+        <span class="pick-sw${c.hex ? '' : ' none'}"${c.hex ? ` style="background:${c.hex}"` : ''}></span>
+        <span class="pick-txt"><span class="nm"><b>${esc(c.code)}</b>${esc(c.name)}${c.active ? '' : '<span class="pick-tag">inactive</span>'}</span>
+        <small>${esc(c.pantone || 'no Pantone')}${c.hex ? ' · ' + c.hex.toUpperCase() : ''}</small></span>
+      </button>`).join('')
+    : emptyPickerMessage(words);
+}
+
+// When nothing matches in the chosen season, say how many match in other seasons, with a way there.
+function emptyPickerMessage(words) {
+  if (view.pickSeason) {
+    const elsewhere = COMPANY.filter(c => (view.pickInactive || c.active) && words.every(w => c.key.includes(w))).length;
+    if (elsewhere) {
+      return `<div class="pick-empty">No match in ${esc(view.pickSeason)}, but ${elsewhere} in other seasons.<br>` +
+        `<button class="btn" id="pickAllSeasons" style="margin-top:10px">Show all seasons</button></div>`;
+    }
+  }
+  return '<div class="pick-empty">No color matches. Try fewer letters.</div>';
+}
+
+$('pickSearch').addEventListener('input', renderPicker);
+$('pickSeason').addEventListener('change', e => { view.pickSeason = e.target.value; saveView(); renderPicker(); });
+$('pickInactive').addEventListener('change', e => {
+  view.pickInactive = e.target.checked;
+  saveView(); renderSeasonOptions(); renderPicker();
+});
+
+$('pickGrid').addEventListener('click', e => {
+  if (e.target.closest('#pickAllSeasons')) {
+    view.pickSeason = '';
+    saveView(); $('pickSeason').value = ''; renderPicker(); $('pickSearch').focus();
+    return;
+  }
+  const b = e.target.closest('[data-n]');
+  if (!b || !pickTarget) return;
+  const c = COMPANY[Number(b.dataset.n)], k = cw();
+  for (const i of pickTarget.idx) {
+    const col = design.stripes[i].colors[k];
+    if (c.hex) col.color = c.hex;
+    col.pantone = companyLabel(c);
+  }
+  $('pickDialog').close();
+  changed({ list: true });
+  if (c.hex) toast(`${companyLabel(c)} chosen.`, { withUndo: true });
+  else toast(`Centric has no screen color for ${c.code} ${c.name}. The name and Pantone are set; ` +
+    'choose the color itself with "Another color…" or the hex field.', { kind: 'warn' });
+});
+
+// A color that is not in the company list: its old color reference no longer fits, so it is cleared.
+$('pickOther').addEventListener('change', e => {
+  if (!pickTarget) return;
+  const hex = normalizeHex(e.target.value), k = cw();
+  if (!hex) return;
+  for (const i of pickTarget.idx) design.stripes[i].colors[k] = { color: hex, pantone: '' };
+  $('pickDialog').close();
+  changed({ list: true });
+  toast('Color set. Its color reference was cleared, because it is not a company color.', { withUndo: true });
 });
 
 /* ---------- Order details ---------- */
@@ -1916,7 +2032,7 @@ function planSpecSheet(d) {
     const st = cwStripes(d, k);
     table(title, [
       { label: 'Color', x: PDF_MARGIN + 2 },
-      { label: 'Pantone', x: PDF_MARGIN + 16, w: 58 },
+      { label: 'Color ref.', x: PDF_MARGIN + 16, w: 58 },
       { label: 'Hex', x: PDF_MARGIN + 77 },
       { label: 'Stripes', x: PDF_MARGIN + 110, align: 'right' },
       { label: 'Total width', x: PDF_MARGIN + 145, align: 'right' },
@@ -2043,7 +2159,7 @@ function planSpecSheet(d) {
     table('Stripe sequence (one repeat, in order)', [
       { label: '#', x: PDF_MARGIN + 2 },
       { label: 'Color', x: PDF_MARGIN + 9 },
-      { label: 'Pantone', x: PDF_MARGIN + 23, w: 50 },
+      { label: 'Color ref.', x: PDF_MARGIN + 23, w: 50 },
       { label: 'Hex', x: PDF_MARGIN + 77 },
       { label: 'Width', x: PDF_MARGIN + 125, align: 'right' },
       { label: 'Position in repeat', x: PDF_MARGIN + 178, align: 'right' },
